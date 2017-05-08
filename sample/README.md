@@ -161,12 +161,12 @@ Use `dtc` to dump content of the device tree currently used by the kernel to a f
 
 ```
 dtc -I fs -O dts /proc/device-tree -o devicetree.dts
-echo '/include/ "custom.dtsi";' >> devicetree.dts
+echo '/include/ "custom.dtsi"' >> devicetree.dts
 ```
 
 Script above also adds this line to `devicetree.dts`
 
-    /include/ "custom.dtsi";
+    /include/ "custom.dtsi"
 
 After that compile device tree to binary format:
 
@@ -188,11 +188,34 @@ being used:
 
     dtc -I fs -O dts /proc/device-tree | grep generic-uio
 
-Verify that UIO driver picked up our new my_mult device:
+### Loading bitstream onto parallella
 
+```
+# Make sure eLink is not being used
+sudo systemctl stop parallella-thermald.service
+sudo rmmod epiphany
+#
+# Load new Bitstream to FPGA
+sudo dd if=my_test.bit of=/dev/xdevcfg
+
+```
+
+Verify that UIO driver picked up our new my_mult device by issuing the following commands:
+```
     ls -l /dev/uio0
     ls -l /sys/class/uio/uio0/
     cat /sys/class/uio/uio0/name
+````
+
+### OH NO! THERE IS NO **/dev/uio0** !!
+
+When I tested myself the board I had two issues with the 2016.11 version of parabuntu. First of all, the UIO driver didn't loaded properly, despite having modified the device tree. In order to solve this problem you should issue a modprobe on the required modules.
+
+```
+modprobe uio_dmem_genirq
+modprobe uio_pdrv_genirq 
+modprobe uio_xilinx_apm
+```
 
 ### Run the Test
 
@@ -204,19 +227,7 @@ reader.
     cd test_app
     make
 
-This should produce an executable called `uio_mult_test`. We now need to load our custom Bitstream
-
-```
-# Make sure eLink is not being used
-sudo systemctl stop parallella-thermald@epiphany-mesh0.service
-sudo rmmod epiphany
-#
-# Load new Bitstream to FPGA
-sudo dd if=my_test.bit of=/dev/xdevcfg
-
-```
-    
-We can now run the test app:
+This should produce an executable called `uio_mult_test`. We can now run the test app:
 
     sudo ./uio_mult_test
 
@@ -259,4 +270,3 @@ actions performed above
 1. Explain memory mapped device concept
 2. Explain UIO and reasons behind using that (virtual addresses vs actual addresses under Linux)
 3. Explain specifics of the my_mult device
-
